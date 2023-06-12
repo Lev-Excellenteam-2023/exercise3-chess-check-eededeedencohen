@@ -4,9 +4,10 @@
 #
 # Note: move log class inspired by Eddie Sharick
 #
+import copy
+
 from Piece import Rook, Knight, Bishop, Queen, King, Pawn
 from enums import Player
-
 '''
 r \ c     0           1           2           3           4           5           6           7 
 0   [(r=0, c=0), (r=0, c=1), (r=0, c=2), (r=0, c=3), (r=0, c=4), (r=0, c=5), (r=0, c=6), (r=0, c=7)]
@@ -28,13 +29,30 @@ r \ c     0           1           2           3           4           5         
 class game_state:
     # Initialize 2D array to represent the chess board
     def __init__(self):
-        # The board is a 2D array
-        # TODO: Change to a numpy format later
-        self.white_captives = []
-        self.black_captives = []
-        self.move_log = []
+        """ Initialize the board and the pieces
+
+        :param board: 2D array of pieces
+        :param white_pieces: list of white pieces
+        :param black_pieces: list of black pieces
+        :param white_captives: list of white captives
+        :param black_captives: list of black captives
+        :param move_log: list of move logs
+        :param white_turn: boolean to indicate whose turn it is
+        :param can_en_passant_bool: boolean to indicate if en passant is possible
+        :param _en_passant_previous: tuple to indicate the previous en passant move
+        :param checkmate: boolean to indicate if checkmate has occurred
+        :param stalemate: boolean to indicate if stalemate has occurred
+        :param _is_check: boolean to indicate if the king is in check
+        :param _white_king_location: tuple to indicate the location of the white king
+        :param _black_king_location: tuple to indicate the location of the black king
+        :param white_king_can_castle: list of booleans to indicate if the white king can castle
+        :param black_king_can_castle: list of booleans to indicate if the black king can castle
+        """
+        self.white_captives = [] # list of tuples of captives (piece, location) : TO DO
+        self.black_captives = [] # list of tuples of captives (piece, location) : TO DO
+        self.move_log = [] # history of moves
         self.white_turn = True
-        self.can_en_passant_bool = False
+        self.can_en_passant_bool = False # boolean to indicate if en passant is possible.
         self._en_passant_previous = (-1, -1)
         self.checkmate = False
         self.stalemate = False
@@ -46,6 +64,9 @@ class game_state:
         self.white_king_can_castle = [True, True,
                                       True]  # Has king not moved, has Rook1(col=0) not moved, has Rook2(col=7) not moved
         self.black_king_can_castle = [True, True, True]
+
+        # Tuple for the place of the piece that moved last - used for en passant
+        self.last_moved_piece_location = (-1, -1)
 
         # Initialize White pieces
         white_rook_1 = Rook('r', 0, 0, Player.PLAYER_1)
@@ -110,43 +131,61 @@ class game_state:
              black_rook_2]
         ]
 
+
+
     def get_piece(self, row, col):
+        """ Returns the piece in the given row and column - return piece object, empty , or None
+        """
         if (0 <= row < 8) and (0 <= col < 8):
-            return self.board[row][col]
+            return self.board[row][col] 
 
     def is_valid_piece(self, row, col):
+        """ Returns True if the piece at (row, col) is not empty.
+        """
         evaluated_piece = self.get_piece(row, col)
         return (evaluated_piece is not None) and (evaluated_piece != Player.EMPTY)
 
-    def get_valid_moves(self, starting_square):
-        '''
-        remove pins from valid moves (unless the pinned piece move can get rid of a check and checks is empty
-        remove move from valid moves if the move falls within a check piece's valid move
-        if the moving piece is a king, the ending square cannot be in a check
-        '''
-
-        current_row = starting_square[0]
+    def get_valid_moves(self, starting_square):  # starting_square is a tuple (row, col)
+        """ Returns a list of valid moves for the piece at the given starting square.
+        """
+        current_row = starting_square[0] 
         current_col = starting_square[1]
-
+        """if there is a piece in the given square
+            moving_piece = the piece in the square 
+            valid_moves = list of valid moves for the piece
+            checking_pieces = list of pieces (enemy) that are checking the king | | |E| |K| | | |
+            pinned_pieces = list of pieces (my) that are pinned  |E| |M| |K| | | |
+            pinned_checks = list of pieces (enemy) that are pinned and checking the king |E| |M| |K| | | |
+            initial_valid_piece_moves = list of valid moves for the piece (before checking for check)
+        """
         if self.is_valid_piece(current_row, current_col):
             valid_moves = []
-            moving_piece = self.get_piece(current_row, current_col)
-            if self.get_piece(current_row, current_col).is_player(Player.PLAYER_1):
+            moving_piece = self.get_piece(current_row, current_col) 
+            # case the moving piece is white
+            if moving_piece.is_player(Player.PLAYER_1):
                 king_location = self._white_king_location
+            # case the moving piece is black
             else:
                 king_location = self._black_king_location
             group = self.check_for_check(king_location, moving_piece.get_player())
-            checking_pieces = group[0]
-            pinned_pieces = group[1]
-            pinned_checks = group[2]
+            checking_pieces = group[0] # list of pieces that are checking the king
+            pinned_pieces = group[1] # list of pieces(my) that are pinned
+            pinned_checks = group[2] # list of pieces(enemy) that are pinned and checking the king
             initial_valid_piece_moves = moving_piece.get_valid_piece_moves(self)
 
-            # immediate check
+            'if there is enemy piece checking the king'
             if checking_pieces:
+                'iterate over the valid moves of the moving piece'
                 for move in initial_valid_piece_moves:
                     can_move = True
+                    'iterate over the checking pieces'
                     for piece in checking_pieces:
                         if moving_piece.get_name() is "k":
+                            """"
+                            Moving the king temporarily to the move location.
+                            If the king is still in check after the move, the move is not valid.
+                            Else if 
+                            """
                             temp = self.board[current_row][current_col]
                             self.board[current_row][current_col] = Player.EMPTY
                             temp2 = self.board[move[0]][move[1]]
@@ -159,6 +198,9 @@ class game_state:
                             self.board[move[0]][move[1]] = temp2
                         elif move == piece and len(checking_pieces) == 1 and moving_piece.get_name() is not "k" and \
                                 (current_row, current_col) not in pinned_pieces:
+                            # TO DO: add a case of pinned piece that can
+                            # take the checking piece if the checking piece 
+                            # is the only piece checking the king
                             pass
                         elif move != piece and len(checking_pieces) == 1 and moving_piece.get_name() is not "k" and \
                                 (current_row, current_col) not in pinned_pieces:
@@ -191,6 +233,16 @@ class game_state:
                         self.board[move[0]][move[1]] = temp
             else:
                 if moving_piece.get_name() is "k":
+                    ''' if the king is moving:
+                            foreach possible move of the king:
+                                save the current piece in that square
+                                save the current piece in the move square
+                                move the king to the move square
+                                if there is no enemy piece checking the king directly in the new state:
+                                    add the move to the list of valid moves
+                                move the king back to the original square
+                                move the piece in the move square back to the original square
+                    '''
                     for move in initial_valid_piece_moves:
                         temp = self.board[current_row][current_col]
                         temp2 = self.board[move[0]][move[1]]
@@ -201,6 +253,9 @@ class game_state:
                         self.board[current_row][current_col] = temp
                         self.board[move[0]][move[1]] = temp2
                 else:
+                    '''  if the piece is not the king:
+                            save all the possible moves of the piece
+                    '''
                     for move in initial_valid_piece_moves:
                         valid_moves.append(move)
             # if not valid_moves:
@@ -213,24 +268,34 @@ class game_state:
             #     self.stalemate = False
             return valid_moves
         else:
-            return None
+            return None  # case of there is no enemy that can check the king
 
     # 0 if white lost, 1 if black lost, 2 if stalemate, 3 if not game over
     def checkmate_stalemate_checker(self):
+        """ checks if the game is over:
+
+        """
         all_white_moves = self.get_all_legal_moves(Player.PLAYER_1)
         all_black_moves = self.get_all_legal_moves(Player.PLAYER_2)
         if self._is_check and self.whose_turn() and not all_white_moves:
-            print("white lost")
+            ''' if the king is in check and it is white's turn and there are no valid moves for white: '''
+            #print("white lost")
             return 0
         elif self._is_check and not self.whose_turn() and not all_black_moves:
-            print("black lost")
+            ''' if the king is in check and it is black's turn and there are no valid moves for black: '''
+            #print("black lost")
             return 1
         elif not all_white_moves and not all_black_moves:
+            ''' if there are no valid moves for white and there are no valid moves for black: '''
             return 2
         else:
+            ''' if the game is not over:'''
             return 3
 
     def get_all_legal_moves(self, player):
+        """ Returns a list of all the valid moves for the given player - [[(row, col), (row, col)], ...]
+        :param player: the player to get the valid moves for
+        """
         # _all_valid_moves = [[], []]
         # for row in range(0, 8):
         #     for col in range(0, 8):
@@ -248,8 +313,9 @@ class game_state:
                         _all_valid_moves.append(((row, col), move))
         return _all_valid_moves
 
+    # TO DO: fixing the method
     def king_can_castle_left(self, player):
-        if player is Player.PLAYER_1:
+        if player is Player.PLAYER_1:  # white
             return self.white_king_can_castle[0] and self.white_king_can_castle[1] and \
                    self.get_piece(0, 1) is Player.EMPTY and self.get_piece(0, 2) is Player.EMPTY and not self._is_check
         else:
@@ -327,6 +393,29 @@ class game_state:
             temp = True
 
             if ending_square in valid_moves:
+
+                # =================================
+                #      My code for En Passant
+                # =================================
+                if moving_piece.get_name() is "p":
+                    if self.can_en_passant_move(current_square_row, current_square_col, next_square_row, next_square_col)[0]:
+                        delete_piece = self.can_en_passant_move(current_square_row, current_square_col, next_square_row, next_square_col)[1]
+                        self.board[delete_piece.get_row_number()][delete_piece.get_col_number()] = Player.EMPTY
+
+                if moving_piece.get_name() == "p" and abs(current_square_row - next_square_row) == 2:
+                    moving_piece.set_has_moved_two_squares(True)
+
+                if self.last_moved_piece_location != (-1, -1) and \
+                        self.is_valid_piece(self.last_moved_piece_location[0], self.last_moved_piece_location[1]):
+                    last_moved_piece = self.get_piece(self.last_moved_piece_location[0],
+                                                      self.last_moved_piece_location[1])
+                    if last_moved_piece.get_name() == "p":
+                        last_moved_piece.set_has_moved_two_squares(False)
+
+                self.last_moved_piece_location = ending_square
+                # === End of My code for En Passant ===
+                # =====================================
+
                 moved_to_piece = self.get_piece(next_square_row, next_square_col)
                 if moving_piece.get_name() is "k":
                     if moving_piece.is_player(Player.PLAYER_1):
@@ -458,6 +547,14 @@ class game_state:
                     self.move_log.append(chess_move(starting_square, ending_square, self, self._is_check))
                     self.can_en_passant_bool = False
 
+                # # ===================================
+                # # Adding My code for En Passant
+                # # ===================================
+                # if self.can_en_passant_move(starting_square[0], starting_square[1], ending_square[0], ending_square[1])[0] == True:
+                #     print("En Passant")
+                #     deleted_pawn = self.can_en_passant_move(starting_square[0], starting_square[1], ending_square[0], ending_square[1])[1]
+                #     self.board[deleted_pawn.get_row_number()][deleted_pawn.get_col_number()] = Player.EMPTY
+
                 if temp:
                     moving_piece.change_row_number(next_square_row)
                     moving_piece.change_col_number(next_square_col)
@@ -553,8 +650,14 @@ class game_state:
         else:
             print("Back to the beginning!")
 
+
+
+
+
     # true if white, false if black
     def whose_turn(self):
+        """  return true if white's turn, false if black's turn
+        """
         return self.white_turn
 
     '''
@@ -582,10 +685,12 @@ class game_state:
         _left = 1
         _right = 1
 
-        # Left of the king
+        # Left of the king 
         _possible_pin = ()
+        'scan all cells to the left of the king'
         while king_location_col - _left >= 0 and self.get_piece(king_location_row,
                                                                 king_location_col - _left) is not None:
+            # if there is a piece from the king to the left board and its the same player=> the first piece is a _possible_pin
             if self.is_valid_piece(king_location_row, king_location_col - _left) and \
                     self.get_piece(king_location_row, king_location_col - _left).is_player(player) and \
                     self.get_piece(king_location_row, king_location_col - _left).get_name() is not "k":
@@ -593,22 +698,22 @@ class game_state:
                     _possible_pin = (king_location_row, king_location_col - _left)
                 else:
                     break
+            # if there is a piece from the king to the left board and its the different player=>
             elif self.is_valid_piece(king_location_row, king_location_col - _left) and \
                     not self.get_piece(king_location_row, king_location_col - _left).is_player(player):
+                # if there is pin between the king and the piece
                 if _possible_pin:
                     temp = self.board[_possible_pin[0]][_possible_pin[1]]
                     self.board[_possible_pin[0]][_possible_pin[1]] = Player.EMPTY
                     if (king_location_row, king_location_col) in self.get_piece(king_location_row,
-                                                                                king_location_col - _left).get_valid_piece_takes(
-                            self):
+                                                                                king_location_col - _left).get_valid_piece_takes(self):
                         _pins.append(_possible_pin)
                         _pins_check.append((king_location_row, king_location_col - _left))
                     self.board[_possible_pin[0]][_possible_pin[1]] = temp
                 else:
                     if (king_location_row, king_location_col) in self.get_piece(king_location_row,
-                                                                                king_location_col - _left).get_valid_piece_takes(
-                            self):
-                        # self._is_check = True
+                                                                                king_location_col - _left).get_valid_piece_takes(self):
+                                                                                                                        # self._is_check = True
                         _checks.append((king_location_row, king_location_col - _left))
                 break
             _left += 1
@@ -723,9 +828,7 @@ class game_state:
                 if _possible_pin:
                     temp = self.board[_possible_pin[0]][_possible_pin[1]]
                     self.board[_possible_pin[0]][_possible_pin[1]] = Player.EMPTY
-                    if (king_location_row, king_location_col) in self.get_piece(king_location_row - _up,
-                                                                                king_location_col - _left).get_valid_piece_takes(
-                            self):
+                    if (king_location_row, king_location_col) in self.get_piece(king_location_row - _up, king_location_col - _left).get_valid_piece_takes(self):
                         _pins.append(_possible_pin)
                         _pins_check.append((king_location_row - _up, king_location_col - _left))
                     self.board[_possible_pin[0]][_possible_pin[1]] = temp
@@ -854,7 +957,93 @@ class game_state:
                     # self._is_check = True
                     _checks.append((king_location_row + row_change[i], king_location_col + col_change[i]))
         # print([_checks, _pins, _pins_check])
-        return [_pins_check, _pins, _pins_check]
+        return [_checks, _pins, _pins_check]
+
+    def print_board(self):
+        """
+        Prints the board to the console.
+        the format is:
+        [R(w), N(w), B(w), Q(w), K(w), B(w), N(w), R(w)]
+        [P(w), P(w), P(w), P(w), P(w), P(w), P(w), P(w)]
+        [0] * 8
+        [0] * 8
+        [0] * 8
+        [0] * 8
+        [P(b), P(b), P(b), P(b), P(b), P(b), P(b), P(b)]
+        [R(b), N(b), B(b), Q(b), K(b), B(b), N(b), R(b)]
+        """
+        for col in self.board:
+            for piece in col:
+                # get the color of the piece W-player 1, B-player 2
+                if piece is not Player.EMPTY:
+                    if piece.is_player(Player.PLAYER_1):
+                        color = "W"
+                    else:
+                        color = "B"
+                    print("|" + piece.get_name() + "(" + color + ")", end="")
+                else:
+                    print("| _0 ", end="")
+            print("|")
+        print()
+
+    def can_en_passant_move(self, start_row, start_col, end_row, end_col):
+        # check if the piece is a pawn
+        if self.get_piece(start_row, start_col).get_name() != "p":
+            return (False, None)
+
+        # White Pawn Moving Up
+        if self.is_valid_piece(start_row, start_col + 1) and \
+                self.get_piece(start_row, start_col).is_player(Player.PLAYER_1) and \
+                self.get_piece(start_row, start_col + 1).is_player(Player.PLAYER_2) and \
+                self.get_piece(start_row, start_col + 1).get_name() == "p" and \
+                self.get_piece(start_row, start_col + 1).has_moved_two_squares() and \
+                self.get_piece(end_row, end_col) == Player.EMPTY and \
+                end_col == start_col + 1 and end_row == start_row + 1:
+            return (True, self.get_piece(start_row, start_col + 1))
+
+        # White Pawn Moving Down
+        if self.is_valid_piece(start_row, start_col - 1) and \
+                self.get_piece(start_row, start_col).is_player(Player.PLAYER_1) and \
+                self.get_piece(start_row, start_col - 1).is_player(Player.PLAYER_2) and \
+                self.get_piece(start_row, start_col - 1).get_name() == "p" and \
+                self.get_piece(start_row, start_col - 1).has_moved_two_squares() and \
+                self.get_piece(end_row, end_col) == Player.EMPTY and \
+                end_col == start_col - 1 and end_row == start_row + 1:
+            return (True, self.get_piece(start_row, start_col - 1))
+
+        # Black Pawn Moving Up
+        if self.is_valid_piece(start_row, start_col + 1) and \
+                self.get_piece(start_row, start_col).is_player(Player.PLAYER_2) and \
+                self.get_piece(start_row, start_col + 1).is_player(Player.PLAYER_1) and \
+                self.get_piece(start_row, start_col + 1).get_name() == "p" and \
+                self.get_piece(start_row, start_col + 1).has_moved_two_squares() and \
+                self.get_piece(end_row, end_col) == Player.EMPTY and \
+                end_col == start_col + 1 and end_row == start_row - 1:
+            return (True, self.get_piece(start_row, start_col + 1))
+
+        # Black Pawn Moving Down
+        if self.is_valid_piece(start_row, start_col - 1) and \
+                self.get_piece(start_row, start_col).is_player(Player.PLAYER_2) and \
+                self.get_piece(start_row, start_col - 1).is_player(Player.PLAYER_1) and \
+                self.get_piece(start_row, start_col - 1).get_name() == "p" and \
+                self.get_piece(start_row, start_col - 1).has_moved_two_squares() and \
+                self.get_piece(end_row, end_col) == Player.EMPTY and \
+                end_col == start_col - 1 and end_row == start_row - 1:
+            return (True, self.get_piece(start_row, start_col - 1))
+
+        return (False, None)
+
+
+
+
+    def copy_board(self):
+        """
+        Returns a copy of the board
+        """
+        return copy.deepcopy(self)
+
+
+
 
 
 class chess_move():
@@ -868,6 +1057,52 @@ class chess_move():
         self.ending_square_col = ending_square[1]
         if game_state.is_valid_piece(self.ending_square_row, self.ending_square_col):
             self.removed_piece = game_state.get_piece(self.ending_square_row, self.ending_square_col)
+        # TO DO: add en passant
+        # ======== EN PASSANT =========
+        # elif game_state.get_piece(self.starting_square_row, self.starting_square_col).get_name() == "p":
+        #     # White Pawn Moving Up
+        #     if game_state.is_valid_piece(self.starting_square_row, self.starting_square_col + 1) and \
+        #         game_state.get_piece(self.starting_square_row, self.starting_square_col).is_player(Player.PLAYER_1) and \
+        #         game_state.get_piece(self.starting_square_row, self.starting_square_col + 1).is_player(Player.PLAYER_2) and \
+        #         game_state.get_piece(self.starting_square_row, self.starting_square_col + 1).get_name() == "p" and \
+        #         game_state.get_piece(self.starting_square_row, self.starting_square_col + 1).has_moved_two_squares() and \
+        #         game_state.get_piece(self.ending_square_row, self.ending_square_col) == Player.EMPTY and \
+        #         self.ending_square_col == self.starting_square_col + 1:
+        #         print("EN PASSANT")
+        #         self.removed_piece = game_state.get_piece(self.starting_square_row, self.starting_square_col + 1)
+        #
+        #     # White Pawn Moving Down
+        #     elif game_state.is_valid_piece(self.starting_square_row, self.starting_square_col - 1) and \
+        #         game_state.get_piece(self.starting_square_row, self.starting_square_col).is_player(Player.PLAYER_1) and \
+        #         game_state.get_piece(self.starting_square_row, self.starting_square_col - 1).is_player(Player.PLAYER_2) and \
+        #         game_state.get_piece(self.starting_square_row, self.starting_square_col - 1).get_name() == "p" and \
+        #         game_state.get_piece(self.starting_square_row, self.starting_square_col - 1).has_moved_two_squares() and \
+        #         game_state.get_piece(self.ending_square_row, self.ending_square_col) == Player.EMPTY and \
+        #         self.ending_square_col == self.starting_square_col - 1:
+        #         print("EN PASSANT")
+        #         self.removed_piece = game_state.get_piece(self.starting_square_row, self.starting_square_col - 1)
+        #
+        #     # Black Pawn Moving Up
+        #     elif game_state.is_valid_piece(self.starting_square_row, self.starting_square_col + 1) and \
+        #         game_state.get_piece(self.starting_square_row, self.starting_square_col).is_player(Player.PLAYER_2) and \
+        #         game_state.get_piece(self.starting_square_row, self.starting_square_col + 1).is_player(Player.PLAYER_1) and \
+        #         game_state.get_piece(self.starting_square_row, self.starting_square_col + 1).get_name() == "p" and \
+        #         game_state.get_piece(self.starting_square_row, self.starting_square_col + 1).has_moved_two_squares() and \
+        #         game_state.get_piece(self.ending_square_row, self.ending_square_col) == Player.EMPTY and \
+        #         self.ending_square_col == self.starting_square_col + 1:
+        #         print("EN PASSANT")
+        #         self.removed_piece = game_state.get_piece(self.starting_square_row, self.starting_square_col + 1)
+        #
+        #     # Black Pawn Moving Down
+        #     elif game_state.is_valid_piece(self.starting_square_row, self.starting_square_col - 1) and \
+        #         game_state.get_piece(self.starting_square_row, self.starting_square_col).is_player(Player.PLAYER_2) and \
+        #         game_state.get_piece(self.starting_square_row, self.starting_square_col - 1).is_player(Player.PLAYER_1) and \
+        #         game_state.get_piece(self.starting_square_row, self.starting_square_col - 1).get_name() == "p" and \
+        #         game_state.get_piece(self.starting_square_row, self.starting_square_col - 1).has_moved_two_squares() and \
+        #         game_state.get_piece(self.ending_square_row, self.ending_square_col) == Player.EMPTY and \
+        #         self.ending_square_col == self.starting_square_col - 1:
+        #         print("EN PASSANT")
+        #         self.removed_piece = game_state.get_piece(self.starting_square_row, self.starting_square_col - 1)
         else:
             self.removed_piece = Player.EMPTY
 
@@ -876,12 +1111,12 @@ class chess_move():
         self.rook_ending_square = None
         self.moving_rook = None
 
-        self.pawn_promoted = False
-        self.replacement_piece = None
+        self.pawn_promoted = False  # True if the Pawn arrived to the end of the board and needs to be promoted
+        self.replacement_piece = None # the piece that the Pawn will be promoted to
 
-        self.en_passaned = False
-        self.en_passant_eaten_piece = None
-        self.en_passant_eaten_square = None
+        self.en_passaned = False # True if the Pawn moved 2 squares and is now vulnerable to en passant
+        self.en_passant_eaten_piece = None # the Pawn that was eaten by en passant
+        self.en_passant_eaten_square = None # the square that the Pawn that was eaten by en passant was on
 
     def castling_move(self, rook_starting_square, rook_ending_square, game_state):
         self.castled = True
@@ -900,3 +1135,17 @@ class chess_move():
 
     def get_moving_piece(self):
         return self.moving_piece
+
+
+
+
+
+
+
+
+
+
+
+
+
+
