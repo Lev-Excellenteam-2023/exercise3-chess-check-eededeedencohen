@@ -10,39 +10,52 @@ import chess_engine
 from enums import Player
 
 
+
 class chess_ai:
     '''
     call minimax with alpha beta pruning
     evaluate board
     get the value of each piece
     '''
+
+
     def minimax_white(self, game_state, depth, alpha, beta, maximizing_player, player_color):
+        """
+        find the best move for the Black player AI.
+        """
         csc = game_state.checkmate_stalemate_checker()
         if maximizing_player:
-            if csc == 0:
+            if csc == 0:    # 0 - black wins
                 return 5000000
-            elif csc == 1:
+            elif csc == 1:  # 1 - white wins
                 return -5000000
-            elif csc == 2:
+            elif csc == 2:  # 2 - draw
                 return 100
         elif not maximizing_player:
-            if csc == 1:
+            if csc == 1:  # 1 -   white wins
                 return 5000000
-            elif csc == 0:
+            elif csc == 0:  # 0 - black wins
                 return -5000000
-            elif csc == 2:
+            elif csc == 2:  # 2 - draw
                 return 100
 
         if depth <= 0 or csc != 3:
+            """ 
+            If the depth is 0 - the tree has reached the end
+            or 
+            If there is a checkmate or stalemate in the tree - return the evaluation score of the board
+            """
             return self.evaluate_board(game_state, Player.PLAYER_1)
+
 
         if maximizing_player:
             max_evaluation = -10000000
             all_possible_moves = game_state.get_all_legal_moves("black")
             for move_pair in all_possible_moves:
-                game_state.move_piece(move_pair[0], move_pair[1], True)
-                evaluation = self.minimax_white(game_state, depth - 1, alpha, beta, False, "white")
-                game_state.undo_move()
+                copy_current_board = game_state.copy_board()
+                copy_current_board.move_piece(move_pair[0], move_pair[1], True)
+                evaluation = self.minimax_white(copy_current_board, depth - 1, alpha, beta, False, "white")
+                #game_state.undo_move()
 
                 if max_evaluation < evaluation:
                     max_evaluation = evaluation
@@ -58,9 +71,10 @@ class chess_ai:
             min_evaluation = 10000000
             all_possible_moves = game_state.get_all_legal_moves("white")
             for move_pair in all_possible_moves:
-                game_state.move_piece(move_pair[0], move_pair[1], True)
-                evaluation = self.minimax_white(game_state, depth - 1, alpha, beta, True, "black")
-                game_state.undo_move()
+                copy_current_board = game_state.copy_board()
+                copy_current_board.move_piece(move_pair[0], move_pair[1], True)
+                evaluation = self.minimax_white(copy_current_board, depth - 1, alpha, beta, True, "black")
+                #game_state.undo_move()
 
                 if min_evaluation > evaluation:
                     min_evaluation = evaluation
@@ -76,9 +90,9 @@ class chess_ai:
     def minimax_black(self, game_state, depth, alpha, beta, maximizing_player, player_color):
         csc = game_state.checkmate_stalemate_checker()
         if maximizing_player:
-            if csc == 1:
+            if csc == 1: 
                 return 5000000
-            elif csc == 0:
+            elif csc == 0: 
                 return -5000000
             elif csc == 2:
                 return 100
@@ -130,7 +144,13 @@ class chess_ai:
             else:
                 return min_evaluation
 
+
+
     def evaluate_board(self, game_state, player):
+        """
+        get the board and the player that is playing.
+        return the evaluation score of the board.
+        """
         evaluation_score = 0
         for row in range(0, 8):
             for col in range(0, 8):
@@ -139,22 +159,29 @@ class chess_ai:
                     evaluation_score += self.get_piece_value(evaluated_piece, player)
         return evaluation_score
 
+    # def evaluate_board_attack_king(self,game_state,player):
+    #     """
+    #     get more value for pieces that attack the king.
+    #     """
+    #     # find the human king:
+    #     if player is Player.PLAYER_1:
+    #         human_king_location = game_state._white_king_location
+    #     else:
+    #         human_king_location = game_state._black_king_location
+    #
+    #     # gain value only to the pieces that attack the human king:
+    #     evaluation_score = 0
+    #     for row in range(0, 8):
+    #         for col in range(0,8):
+
     def get_piece_value(self, piece, player):
+        """
+        get a piece and the player that is playing.
+        return the value of the piece according to the player.
+        """
         if player is Player.PLAYER_1:
+        # if the human player with white pieces is playing:
             if piece.is_player("black"):
-                if piece.get_name() is "k":
-                    return -1000
-                elif piece.get_name() is "q":
-                    return -100
-                elif piece.get_name() is "r":
-                    return -50
-                elif piece.get_name() is "b":
-                    return -30
-                elif piece.get_name() is "n":
-                    return -30
-                elif piece.get_name() is "p":
-                    return -10
-            else:
                 if piece.get_name() is "k":
                     return 1000
                 elif piece.get_name() is "q":
@@ -167,6 +194,19 @@ class chess_ai:
                     return 30
                 elif piece.get_name() is "p":
                     return 10
+            else:
+                if piece.get_name() is "k":
+                    return -1000
+                elif piece.get_name() is "q":
+                    return -100
+                elif piece.get_name() is "r":
+                    return -50
+                elif piece.get_name() is "b":
+                    return -30
+                elif piece.get_name() is "n":
+                    return -30
+                elif piece.get_name() is "p":
+                    return -10
         else:
             if piece.is_player("white"):
                 if piece.get_name() is "k":
@@ -194,3 +234,6 @@ class chess_ai:
                     return -30
                 elif piece.get_name() is "p":
                     return -10
+
+
+# some change 
