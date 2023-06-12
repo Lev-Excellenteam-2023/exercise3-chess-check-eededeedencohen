@@ -95,7 +95,7 @@ def main():
                 number_of_players = 1
                 while True:
                     human_player = input("What color do you want to play (w or b)?\n")
-                    if human_player is "w" or human_player is "b":
+                    if str(human_player) == "w" or str(human_player) == "b":
                         break
                     else:
                         print("Enter w or b.\n")
@@ -118,26 +118,39 @@ def main():
     player_clicks = []  # keeps track of player clicks (two tuples)
     valid_moves = []
     game_over = False
+    Turn = 0
 
     ai = ai_engine.chess_ai()
     game_state = chess_engine.game_state()
-    if human_player is 'b':
+    # ===========================
+    # Print the board state
+    print("Turn: ", Turn)
+    game_state.print_board()
+    Turn += 1
+    # ===========================
+    if str(human_player) == 'b':
         ai_move = ai.minimax_black(game_state, 3, -100000, 100000, True, Player.PLAYER_1)
         game_state.move_piece(ai_move[0], ai_move[1], True)
+        # ===========================
+        # Print the board state
+        print("Turn: ", Turn)
+        game_state.print_board()
+        Turn += 1
+        # ===========================
 
     while running:
         for e in py.event.get():
-            if e.type == py.QUIT:
+            if e.type == py.QUIT:  # if the user clicks the X
                 running = False
-            elif e.type == py.MOUSEBUTTONDOWN:
+            elif e.type == py.MOUSEBUTTONDOWN:  # if the user clicks the mouse
                 if not game_over:
                     location = py.mouse.get_pos()
                     col = location[0] // SQ_SIZE
                     row = location[1] // SQ_SIZE
-                    if square_selected == (row, col):
+                    if square_selected == (row, col):  # if the user clicks the same square twice - deselect
                         square_selected = ()
                         player_clicks = []
-                    else:
+                    else:  # if the user clicks a different square - select it and add it to the list of clicks (max 2)
                         square_selected = (row, col)
                         player_clicks.append(square_selected)
                     if len(player_clicks) == 2:
@@ -149,22 +162,43 @@ def main():
                         else:
                             game_state.move_piece((player_clicks[0][0], player_clicks[0][1]),
                                                   (player_clicks[1][0], player_clicks[1][1]), False)
+                            # ===========================
+                            # Print the board state
+                            print("Turn: ", Turn)
+                            game_state.print_board()
+                            Turn += 1
+                            # ===========================
                             square_selected = ()
                             player_clicks = []
                             valid_moves = []
 
-                            if human_player is 'w':
+                            if str(human_player) == 'w':
                                 ai_move = ai.minimax_white(game_state, 3, -100000, 100000, True, Player.PLAYER_2)
                                 game_state.move_piece(ai_move[0], ai_move[1], True)
-                            elif human_player is 'b':
+                                # ===========================
+                                # Print the board state
+                                print("Turn: ", Turn)
+                                game_state.print_board()
+                                Turn += 1
+                                # ===========================
+                            elif str(human_player) == 'b':
                                 ai_move = ai.minimax_black(game_state, 3, -100000, 100000, True, Player.PLAYER_1)
                                 game_state.move_piece(ai_move[0], ai_move[1], True)
+                                # ===========================
+                                # Print the board state
+                                print("Turn: ", Turn)
+                                game_state.print_board()
+                                Turn += 1
+                                # ===========================
                     else:
                         valid_moves = game_state.get_valid_moves((row, col))
                         if valid_moves is None:
                             valid_moves = []
             elif e.type == py.KEYDOWN:
+                """If some key has been pressed"""
                 if e.key == py.K_r:
+                    """case R => reset the game
+                    """
                     game_over = False
                     game_state = chess_engine.game_state()
                     valid_moves = []
@@ -172,6 +206,8 @@ def main():
                     player_clicks = []
                     valid_moves = []
                 elif e.key == py.K_u:
+                    """ case U k=> undo the last move 
+                    """
                     game_state.undo_move()
                     print(len(game_state.move_log))
 
